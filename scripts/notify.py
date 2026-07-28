@@ -21,7 +21,7 @@ LABELS = {
     "mvrv": "MVRV",
     "mvrvZ": "MVRV Z-Score",
     "leverage": "杠杆代理",
-    "wwi": "龙波指数",
+    "wwi": "狼波周期指数",
 }
 
 
@@ -224,4 +224,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

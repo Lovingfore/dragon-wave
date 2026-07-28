@@ -7,10 +7,10 @@
   <meta name="description" content="龙波 BTC 周期监控仪表盘">
   <title>龙波 · BTC Cycle Monitor</title>
   <link rel="icon" href="assets/dragon-wave-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="assets/css/app.css">
+  <link rel="stylesheet" href="assets/css/app.css?v=20260728-1">
   <script defer src="assets/js/chart.umd.min.js"></script>
   <script defer src="assets/js/lucide.min.js"></script>
-  <script defer src="assets/js/app.js"></script>
+  <script defer src="assets/js/app.js?v=20260728-1"></script>
 </head>
 <body>
   <header class="app-header">
@@ -118,7 +118,7 @@
           </button>
           <button class="metric-card" type="button" data-metric="wwi">
             <span class="metric-top"><span class="metric-icon accent-red"><i data-lucide="waves"></i></span><span class="source-badge" data-source="wwi">--</span></span>
-            <span class="metric-label">龙波指数</span>
+            <span class="metric-label">狼波周期指数</span>
             <strong class="metric-value" data-value="wwi">--</strong>
             <span class="metric-change-row"><span data-change="wwi">--</span><span>近 7 日</span></span>
           </button>
@@ -150,7 +150,7 @@
           <button type="button" role="tab" aria-selected="false" data-tab="mvrv">MVRV</button>
           <button type="button" role="tab" aria-selected="false" data-tab="mvrvZ">MVRV Z</button>
           <button type="button" role="tab" aria-selected="false" data-tab="leverage">杠杆代理</button>
-          <button type="button" role="tab" aria-selected="false" data-tab="wwi">龙波指数</button>
+          <button type="button" role="tab" aria-selected="false" data-tab="wwi">狼波周期指数</button>
         </div>
         <div class="chart-frame">
           <canvas id="historyChart" aria-label="BTC 周期历史图"></canvas>
@@ -170,7 +170,7 @@
         </div>
         <dl class="method-list">
           <div><dt>估值</dt><dd>NUPL、MVRV、MVRV Z-Score 与价格相对已实现价格的位置</dd></div>
-          <div><dt>周期</dt><dd>基于区块高度计算的龙波指数，0 为理论底部，1 为理论顶部</dd></div>
+          <div><dt>周期</dt><dd>基于 Wolfy Wave Index 公开方法和区块高度计算的狼波周期指数，0 为理论底部，1 为理论顶部</dd></div>
           <div><dt>杠杆</dt><dd>主流交易所公开未平仓量相对 Coin Metrics 交易所 BTC 储备的代理比率</dd></div>
           <div><dt>预警</dt><dd>综合风险分进入 0–15 或 85–100，并且状态发生变化时触发</dd></div>
         </dl>
@@ -188,4 +188,3 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 </body>
 </html>
-

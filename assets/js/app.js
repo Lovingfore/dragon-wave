@@ -8,7 +8,7 @@
     mvrv: { label: "MVRV", color: "#4d9de0", decimals: 2 },
     mvrvZ: { label: "MVRV Z-Score", color: "#ef6f51", decimals: 2 },
     leverage: { label: "杠杆代理", color: "#9d87db", decimals: 4 },
-    wwi: { label: "龙波指数", color: "#e55c6d", decimals: 3 },
+    wwi: { label: "狼波周期指数", color: "#e55c6d", decimals: 3 },
   };
 
   const overviewSeries = [
@@ -17,7 +17,7 @@
     { key: "mvrv", component: "mvrv", label: "MVRV", color: "#4d9de0" },
     { key: "mvrvZ", component: "mvrvZ", label: "MVRV Z", color: "#ef6f51" },
     { key: "leverage", component: "leverage", label: "杠杆代理", color: "#9d87db" },
-    { key: "wwi", component: "wwi", label: "龙波指数", color: "#e55c6d" },
+    { key: "wwi", component: "wwi", label: "狼波周期指数", color: "#e55c6d" },
   ];
 
   const state = {
@@ -338,4 +338,3 @@
     loadData();
   });
 })();
-

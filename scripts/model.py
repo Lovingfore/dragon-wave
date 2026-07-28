@@ -167,13 +167,13 @@ def outlook_7d(current_score, recent_scores, future_wwi=None):
         return {
             "key": "cycle_top_watch",
             "label": "未来七日关注周期顶部信号",
-            "detail": "龙波指数接近理论顶部，其他指标尚未形成共振。",
+            "detail": "狼波周期指数接近理论顶部，其他指标尚未形成共振。",
         }
     if future_wwi is not None and future_wwi <= 0.15:
         return {
             "key": "cycle_bottom_watch",
             "label": "未来七日关注周期底部信号",
-            "detail": "龙波指数接近理论底部，其他指标尚未形成共振。",
+            "detail": "狼波周期指数接近理论底部，其他指标尚未形成共振。",
         }
     return {
         "key": "neutral",
@@ -188,4 +188,3 @@ def iso_now():
 
 def beijing_now():
     return datetime.now(timezone(timedelta(hours=8)))
-
