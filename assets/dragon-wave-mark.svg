@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="龙波">
+  <rect width="64" height="64" rx="8" fill="#101719"/>
+  <path d="M11 38c7 0 8-16 15-16s8 24 15 24 8-28 15-28" fill="none" stroke="#ef6f51" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M11 49h42" fill="none" stroke="#dce7e9" stroke-width="3" stroke-linecap="round" opacity=".75"/>
+</svg>
+

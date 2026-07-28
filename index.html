@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b0f10">
+  <meta name="description" content="龙波 BTC 周期监控仪表盘">
+  <title>龙波 · BTC Cycle Monitor</title>
+  <link rel="icon" href="assets/dragon-wave-mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/css/app.css">
+  <script defer src="assets/js/chart.umd.min.js"></script>
+  <script defer src="assets/js/lucide.min.js"></script>
+  <script defer src="assets/js/app.js"></script>
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <a class="brand" href="./" aria-label="龙波首页">
+        <img class="brand-mark" src="assets/dragon-wave-mark.svg" width="38" height="38" alt="">
+        <span class="brand-copy">
+          <strong>龙波</strong>
+          <span>BTC Cycle Monitor</span>
+        </span>
+      </a>
+      <div class="header-actions">
+        <div class="freshness" id="freshness" aria-live="polite">
+          <span class="status-dot"></span>
+          <span id="freshnessText">正在同步</span>
+        </div>
+        <button class="icon-button" id="refreshButton" type="button" aria-label="刷新数据" title="刷新数据">
+          <i data-lucide="refresh-cw"></i>
+        </button>
+        <button class="icon-button" id="themeButton" type="button" aria-label="切换主题" title="切换主题">
+          <i data-lucide="sun"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="assessment-band" aria-labelledby="assessmentTitle">
+      <div class="page-shell assessment-layout">
+        <div class="assessment-copy">
+          <div class="section-kicker">周期风险状态</div>
+          <div class="assessment-heading-row">
+            <h1 id="assessmentTitle">载入市场状态</h1>
+            <span class="risk-badge tone-muted" id="riskBadge">--</span>
+          </div>
+          <p id="assessmentDetail">正在计算链上估值、市场杠杆与区块周期信号。</p>
+        </div>
+        <div class="risk-panel" aria-label="综合风险分">
+          <div class="risk-score-line">
+            <span>综合风险分</span>
+            <strong id="riskScore">--</strong>
+          </div>
+          <div class="risk-track" aria-hidden="true">
+            <span class="risk-fill" id="riskFill"></span>
+            <span class="risk-marker" id="riskMarker"></span>
+          </div>
+          <div class="risk-scale"><span>底部</span><span>中性</span><span>顶部</span></div>
+        </div>
+        <div class="outlook-panel">
+          <div class="outlook-icon"><i data-lucide="calendar-range"></i></div>
+          <div>
+            <span>未来 7 天</span>
+            <strong id="outlookLabel">等待数据</strong>
+            <p id="outlookDetail">--</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="metrics-section" aria-label="最新指标">
+      <div class="page-shell">
+        <div class="section-heading">
+          <div>
+            <div class="section-kicker">最新监控</div>
+            <h2>核心指标</h2>
+          </div>
+          <div class="data-date" id="dailyDataDate">链上数据 --</div>
+        </div>
+        <div class="metric-grid" id="metricGrid">
+          <button class="metric-card" type="button" data-metric="price">
+            <span class="metric-top"><span class="metric-icon accent-gold"><i data-lucide="bitcoin"></i></span><span class="source-badge" data-source="price">--</span></span>
+            <span class="metric-label">BTC 现货价格</span>
+            <strong class="metric-value" data-value="price">--</strong>
+            <span class="metric-change-row"><span data-change="price">--</span><span>近 7 日</span></span>
+          </button>
+          <button class="metric-card" type="button" data-metric="nupl">
+            <span class="metric-top"><span class="metric-icon accent-green"><i data-lucide="activity"></i></span><span class="source-badge" data-source="nupl">--</span></span>
+            <span class="metric-label">NUPL</span>
+            <strong class="metric-value" data-value="nupl">--</strong>
+            <span class="metric-change-row"><span data-change="nupl">--</span><span>近 7 日</span></span>
+          </button>
+          <button class="metric-card" type="button" data-metric="realizedPrice">
+            <span class="metric-top"><span class="metric-icon accent-cyan"><i data-lucide="circle-dollar-sign"></i></span><span class="source-badge" data-source="realizedPrice">--</span></span>
+            <span class="metric-label">已实现价格</span>
+            <strong class="metric-value" data-value="realizedPrice">--</strong>
+            <span class="metric-change-row"><span data-change="realizedPrice">--</span><span>近 7 日</span></span>
+          </button>
+          <button class="metric-card" type="button" data-metric="mvrv">
+            <span class="metric-top"><span class="metric-icon accent-blue"><i data-lucide="scale"></i></span><span class="source-badge" data-source="mvrv">--</span></span>
+            <span class="metric-label">MVRV</span>
+            <strong class="metric-value" data-value="mvrv">--</strong>
+            <span class="metric-change-row"><span data-change="mvrv">--</span><span>近 7 日</span></span>
+          </button>
+          <button class="metric-card" type="button" data-metric="mvrvZ">
+            <span class="metric-top"><span class="metric-icon accent-coral"><i data-lucide="sigma"></i></span><span class="source-badge" data-source="mvrvZ">--</span></span>
+            <span class="metric-label">MVRV Z-Score</span>
+            <strong class="metric-value" data-value="mvrvZ">--</strong>
+            <span class="metric-change-row"><span data-change="mvrvZ">--</span><span>近 7 日</span></span>
+          </button>
+          <button class="metric-card" type="button" data-metric="leverage">
+            <span class="metric-top"><span class="metric-icon accent-violet"><i data-lucide="gauge"></i></span><span class="source-badge" data-source="leverage">--</span></span>
+            <span class="metric-label">杠杆代理</span>
+            <strong class="metric-value" data-value="leverage">--</strong>
+            <span class="metric-change-row"><span data-change="leverage">--</span><span>近 7 日</span></span>
+          </button>
+          <button class="metric-card" type="button" data-metric="wwi">
+            <span class="metric-top"><span class="metric-icon accent-red"><i data-lucide="waves"></i></span><span class="source-badge" data-source="wwi">--</span></span>
+            <span class="metric-label">龙波指数</span>
+            <strong class="metric-value" data-value="wwi">--</strong>
+            <span class="metric-change-row"><span data-change="wwi">--</span><span>近 7 日</span></span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="chart-section" aria-labelledby="chartTitle">
+      <div class="page-shell">
+        <div class="chart-heading">
+          <div>
+            <div class="section-kicker">历史轨迹</div>
+            <h2 id="chartTitle">综合风险分位</h2>
+            <p id="chartSubtitle">各指标统一映射至 0–100，便于横向比较。</p>
+          </div>
+          <div class="range-control" role="group" aria-label="时间范围">
+            <button type="button" data-range="30">1月</button>
+            <button type="button" data-range="90">3月</button>
+            <button type="button" data-range="365" class="active">1年</button>
+            <button type="button" data-range="1460">4年</button>
+            <button type="button" data-range="all">全部</button>
+          </div>
+        </div>
+        <div class="metric-tabs" role="tablist" aria-label="历史指标">
+          <button type="button" role="tab" aria-selected="true" data-tab="overview" class="active">综合</button>
+          <button type="button" role="tab" aria-selected="false" data-tab="price">BTC 价格</button>
+          <button type="button" role="tab" aria-selected="false" data-tab="nupl">NUPL</button>
+          <button type="button" role="tab" aria-selected="false" data-tab="realizedPrice">已实现价格</button>
+          <button type="button" role="tab" aria-selected="false" data-tab="mvrv">MVRV</button>
+          <button type="button" role="tab" aria-selected="false" data-tab="mvrvZ">MVRV Z</button>
+          <button type="button" role="tab" aria-selected="false" data-tab="leverage">杠杆代理</button>
+          <button type="button" role="tab" aria-selected="false" data-tab="wwi">龙波指数</button>
+        </div>
+        <div class="chart-frame">
+          <canvas id="historyChart" aria-label="BTC 周期历史图"></canvas>
+          <div class="chart-empty" id="chartEmpty" hidden>
+            <i data-lucide="database-zap"></i>
+            <strong>该指标正在积累历史数据</strong>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="method-section" aria-labelledby="methodTitle">
+      <div class="page-shell method-layout">
+        <div>
+          <div class="section-kicker">模型透明度</div>
+          <h2 id="methodTitle">判断依据</h2>
+        </div>
+        <dl class="method-list">
+          <div><dt>估值</dt><dd>NUPL、MVRV、MVRV Z-Score 与价格相对已实现价格的位置</dd></div>
+          <div><dt>周期</dt><dd>基于区块高度计算的龙波指数，0 为理论底部，1 为理论顶部</dd></div>
+          <div><dt>杠杆</dt><dd>主流交易所公开未平仓量相对 Coin Metrics 交易所 BTC 储备的代理比率</dd></div>
+          <div><dt>预警</dt><dd>综合风险分进入 0–15 或 85–100，并且状态发生变化时触发</dd></div>
+        </dl>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <div class="page-shell footer-inner">
+      <span>龙波 · 数据仅用于周期观察，不构成投资建议</span>
+      <span id="sourceSummary">Coin Metrics Community · 公开交易所接口</span>
+    </div>
+  </footer>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
+
