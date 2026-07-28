@@ -20,6 +20,24 @@
     { key: "wwi", component: "wwi", label: "狼波周期指数", color: "#e55c6d" },
   ];
 
+  const bearMarketWindows = [
+    { cycle: "2011", start: "2011-06-01", end: "2012-11-28" },
+    { cycle: "2015", start: "2013-12-01", end: "2016-07-09" },
+    { cycle: "2018", start: "2017-12-01", end: "2020-05-11" },
+    { cycle: "2022", start: "2021-11-01", end: "2024-04-20" },
+  ];
+
+  const bottomComparisonMetrics = [
+    { key: "price", label: "BTC 现货价格" },
+    { key: "nupl", label: "NUPL" },
+    { key: "realizedPrice", label: "已实现价格" },
+    { key: "mvrv", label: "MVRV" },
+    { key: "mvrvZ", label: "MVRV Z-Score" },
+    { key: "leverage", label: "杠杆代理" },
+    { key: "wwi", label: "狼波周期指数" },
+    { key: "riskScore", label: "综合风险分" },
+  ];
+
   const state = {
     data: null,
     chart: null,
@@ -128,6 +146,76 @@
       sourceElement.textContent = sourceLabel(metric.sourceAge);
     });
     $("#dailyDataDate").textContent = `链上数据 ${state.data.metadata?.dailyDataDate || "--"}`;
+  }
+
+  function findBearMarketBottoms() {
+    const series = state.data.series || [];
+    return bearMarketWindows.map((window) => {
+      const candidates = series.filter((row) => row.date >= window.start && row.date <= window.end && row.price !== null && row.price !== undefined);
+      const row = candidates.reduce((lowest, candidate) => (!lowest || Number(candidate.price) < Number(lowest.price) ? candidate : lowest), null);
+      return { ...window, row };
+    });
+  }
+
+  function formatComparisonValue(key, value, historical = false) {
+    if (value === null || value === undefined || Number.isNaN(Number(value))) return historical ? "无历史数据" : "暂不可用";
+    if (key === "riskScore") return Number(value).toFixed(1);
+    return formatMetric(key, value);
+  }
+
+  function appendComparisonCell(row, text, className = "") {
+    const cell = document.createElement("td");
+    cell.textContent = text;
+    if (className) cell.className = className;
+    if (text === "无历史数据" || text === "暂不可用") cell.classList.add("no-history");
+    row.appendChild(cell);
+  }
+
+  function renderBottomComparison() {
+    const bottoms = findBearMarketBottoms();
+    const header = $("#bottomComparisonHead");
+    const body = $("#bottomComparisonBody");
+    const headerRow = document.createElement("tr");
+    const metricHeader = document.createElement("th");
+    metricHeader.scope = "col";
+    metricHeader.textContent = "指标";
+    headerRow.appendChild(metricHeader);
+
+    const currentHeader = document.createElement("th");
+    currentHeader.scope = "col";
+    currentHeader.className = "bottom-current";
+    const currentTitle = document.createElement("strong");
+    currentTitle.textContent = "当前";
+    const currentDate = document.createElement("span");
+    currentDate.textContent = state.data.metadata?.dailyDataDate || "--";
+    currentHeader.append(currentTitle, currentDate);
+    headerRow.appendChild(currentHeader);
+
+    bottoms.forEach((bottom) => {
+      const cell = document.createElement("th");
+      cell.scope = "col";
+      const title = document.createElement("strong");
+      title.textContent = `${bottom.cycle} 底部`;
+      const date = document.createElement("span");
+      date.textContent = bottom.row?.date || "--";
+      cell.append(title, date);
+      headerRow.appendChild(cell);
+    });
+    header.replaceChildren(headerRow);
+
+    const rows = bottomComparisonMetrics.map((metric) => {
+      const row = document.createElement("tr");
+      if (metric.key === "riskScore") row.className = "comparison-risk";
+      const label = document.createElement("th");
+      label.scope = "row";
+      label.textContent = metric.label;
+      row.appendChild(label);
+      const currentValue = metric.key === "riskScore" ? state.data.assessment?.riskScore : state.data.current?.[metric.key]?.value;
+      appendComparisonCell(row, formatComparisonValue(metric.key, currentValue), "bottom-current");
+      bottoms.forEach((bottom) => appendComparisonCell(row, formatComparisonValue(metric.key, bottom.row?.[metric.key], true)));
+      return row;
+    });
+    body.replaceChildren(...rows);
   }
 
   function filteredDailySeries() {
@@ -285,6 +373,7 @@
   function renderAll() {
     renderAssessment();
     renderMetrics();
+    renderBottomComparison();
     renderChart();
     setFreshness("ready", relativeUpdateTime(state.data.metadata?.generatedAt));
   }

@@ -36,7 +36,21 @@ class GeneratedDataTests(unittest.TestCase):
         self.assertGreaterEqual(value, 0)
         self.assertLessEqual(value, 1)
 
+    def test_bear_market_bottom_snapshots_are_available(self):
+        windows = [
+            ("2011-06-01", "2012-11-28"),
+            ("2013-12-01", "2016-07-09"),
+            ("2017-12-01", "2020-05-11"),
+            ("2021-11-01", "2024-04-20"),
+        ]
+        required = {"price", "nupl", "realizedPrice", "mvrv", "mvrvZ", "wwi", "riskScore"}
+        for start, end in windows:
+            candidates = [row for row in self.data["series"] if start <= row["date"] <= end and row.get("price") is not None]
+            self.assertTrue(candidates)
+            bottom = min(candidates, key=lambda row: row["price"])
+            for key in required:
+                self.assertIsNotNone(bottom.get(key), f"{key} missing at {bottom['date']}")
+
 
 if __name__ == "__main__":
     unittest.main()
-

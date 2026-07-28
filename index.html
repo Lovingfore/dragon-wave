@@ -7,10 +7,10 @@
   <meta name="description" content="龙波 BTC 周期监控仪表盘">
   <title>龙波 · BTC Cycle Monitor</title>
   <link rel="icon" href="assets/dragon-wave-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="assets/css/app.css?v=20260728-1">
+  <link rel="stylesheet" href="assets/css/app.css?v=20260728-2">
   <script defer src="assets/js/chart.umd.min.js"></script>
   <script defer src="assets/js/lucide.min.js"></script>
-  <script defer src="assets/js/app.js?v=20260728-1"></script>
+  <script defer src="assets/js/app.js?v=20260728-2"></script>
 </head>
 <body>
   <header class="app-header">
@@ -123,6 +123,27 @@
             <span class="metric-change-row"><span data-change="wwi">--</span><span>近 7 日</span></span>
           </button>
         </div>
+      </div>
+    </section>
+
+    <section class="bottoms-section" aria-labelledby="bottomsTitle">
+      <div class="page-shell">
+        <div class="bottoms-heading">
+          <div class="section-kicker">底部基准</div>
+          <h2 id="bottomsTitle">历次熊市底部对照</h2>
+          <p>各轮底部按对应周期内 Coin Metrics BTC 日线收盘最低价选取。</p>
+        </div>
+        <div class="bottoms-table-wrap" role="region" aria-label="当前指标与历次熊市底部数据对照" tabindex="0">
+          <table class="bottoms-table">
+            <thead id="bottomComparisonHead">
+              <tr><th scope="col">指标</th><th scope="col">当前</th><th scope="col">正在载入历史底部</th></tr>
+            </thead>
+            <tbody id="bottomComparisonBody">
+              <tr><th scope="row">数据状态</th><td colspan="2">正在计算对照数据</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="bottoms-note">杠杆代理缺少跨周期一致的免费历史数据，未覆盖的日期显示为“无历史数据”。</p>
       </div>
     </section>
 
