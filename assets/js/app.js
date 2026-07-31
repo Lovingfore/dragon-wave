@@ -248,7 +248,8 @@
 
   function renderBottomComparison() {
     const bottoms = findBearMarketBottoms();
-    const forecast = expectedBottomForecast(bottoms);
+    const persistedForecast = state.data.assessment?.bottomForecast;
+    const forecast = persistedForecast?.values ? persistedForecast : expectedBottomForecast(bottoms);
     const header = $("#bottomComparisonHead");
     const body = $("#bottomComparisonBody");
     const headerRow = document.createElement("tr");
