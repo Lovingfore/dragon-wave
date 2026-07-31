@@ -8,6 +8,7 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from model import (
+    bottom_forecast,
     composite_risk,
     iso_now,
     outlook_7d,
@@ -307,6 +308,12 @@ def main():
         "mvrvZ": build_metric(current_mvrv_z, onchain_one_day.get("mvrvZ"), onchain_seven_day.get("mvrvZ")),
         "wwi": build_metric(current_wwi["value"], cycle_one_day.get("wwi"), cycle_seven_day.get("wwi"), "block"),
     }
+    forecast = bottom_forecast(
+        series,
+        current,
+        tip_height,
+        latest_onchain["date"],
+    )
 
     payload = {
         "schemaVersion": 2,
@@ -328,6 +335,7 @@ def main():
             "riskScore": current_risk,
             "components": risk_components,
             "outlook7d": outlook,
+            "bottomForecast": forecast,
         },
         "series": series,
         "sources": [

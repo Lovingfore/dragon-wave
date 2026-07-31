@@ -36,6 +36,28 @@ class GeneratedDataTests(unittest.TestCase):
         self.assertGreaterEqual(value, 0)
         self.assertLessEqual(value, 1)
 
+    def test_bottom_forecast_contract(self):
+        assessment = self.data["assessment"]
+        self.assertIn("bottomForecast", assessment)
+        forecast = assessment["bottomForecast"]
+        self.assertRegex(forecast["asOf"], r"^\d{4}-\d{2}-\d{2}$")
+        self.assertRegex(forecast["targetDate"], r"^\d{4}-\d{2}-\d{2}$")
+        self.assertEqual(
+            set(forecast["values"]),
+            {
+                "price",
+                "nupl",
+                "realizedPrice",
+                "mvrv",
+                "mvrvZ",
+                "wwi",
+                "riskScore",
+            },
+        )
+        for value in forecast["values"].values():
+            self.assertIsNotNone(value)
+            self.assertTrue(math.isfinite(value))
+
     def test_derived_history_is_internally_consistent(self):
         count = 0
         mean = 0.0
