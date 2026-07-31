@@ -11,6 +11,13 @@ METRIC_KEYS = (
     "wwi",
 )
 
+BEAR_MARKET_WINDOWS = (
+    ("2011-06-01", "2012-11-28"),
+    ("2013-12-01", "2016-07-09"),
+    ("2017-12-01", "2020-05-11"),
+    ("2021-11-01", "2024-04-20"),
+)
+
 
 def clamp(value, lower=0.0, upper=100.0):
     return max(lower, min(upper, value))
@@ -24,6 +31,42 @@ def safe_float(value):
     except (TypeError, ValueError):
         return None
     return number if math.isfinite(number) else None
+
+
+def _median(values):
+    usable = sorted(value for value in values if value is not None)
+    if not usable:
+        return None
+    middle = len(usable) // 2
+    if len(usable) % 2:
+        return usable[middle]
+    return (usable[middle - 1] + usable[middle]) / 2.0
+
+
+def _recency_weighted_mean(values):
+    usable = [value for value in values if value is not None]
+    if not usable:
+        return None
+    weights = range(1, len(usable) + 1)
+    total_weight = sum(weights)
+    return sum(value * weight for value, weight in zip(usable, weights)) / total_weight
+
+
+def _bear_market_bottoms(series):
+    bottoms = []
+    for start, end in BEAR_MARKET_WINDOWS:
+        candidates = [
+            row
+            for row in series
+            if start <= row.get("date", "") <= end
+            and safe_float(row.get("price")) is not None
+        ]
+        bottoms.append(
+            min(candidates, key=lambda row: safe_float(row.get("price")))
+            if candidates
+            else None
+        )
+    return bottoms
 
 
 def percent_change(current, previous):
@@ -87,6 +130,197 @@ def composite_risk(values):
     total_weight = sum(weight for _, weight in weighted)
     risk = sum(score * weight for score, weight in weighted) / total_weight
     return round(risk, 1), scores
+
+
+def bottom_forecast(series, current, block_height, daily_data_date=None):
+    value_keys = (
+        "price",
+        "nupl",
+        "realizedPrice",
+        "mvrv",
+        "mvrvZ",
+        "wwi",
+        "riskScore",
+    )
+    if not series:
+        return {
+            "values": {key: None for key in value_keys},
+            "asOf": daily_data_date,
+            "targetDate": None,
+        }
+
+    bottoms = _bear_market_bottoms(series)
+    latest_row = next(
+        (
+            row
+            for row in reversed(series)
+            if safe_float(row.get("realizedPrice")) is not None
+        ),
+        None,
+    )
+    latest_date = (latest_row or {}).get("date") or daily_data_date
+    latest_bottom_date = next(
+        (row["date"] for row in reversed(bottoms) if row),
+        None,
+    )
+    current_cycle_rows = [
+        row
+        for row in series
+        if (not latest_bottom_date or row.get("date", "") >= latest_bottom_date)
+        and safe_float(row.get("price")) is not None
+    ]
+    current_top = (
+        max(current_cycle_rows, key=lambda row: safe_float(row.get("price")))
+        if current_cycle_rows
+        else None
+    )
+    forecast_rows = [
+        row
+        for row in series
+        if not current_top or row.get("date", "") >= current_top["date"]
+    ]
+
+    height = safe_float(
+        block_height
+        if block_height is not None
+        else (latest_row or {}).get("blockHeight")
+    )
+    phase = (height + 78750) % 210000 if height is not None else None
+    blocks_to_bottom = (210000 - phase) % 210000 if phase is not None else 0
+    month_start = latest_date[:8] + "01" if latest_date else None
+    recent_blocks = [
+        safe_float(row.get("blocks"))
+        for row in series
+        if month_start and row.get("date", "") >= month_start
+    ]
+    recent_blocks = [
+        value for value in recent_blocks if value is not None and value > 0
+    ]
+    average_blocks_per_day = (
+        sum(recent_blocks) / len(recent_blocks) if recent_blocks else 144
+    )
+    days_to_bottom = (
+        blocks_to_bottom / average_blocks_per_day
+        if average_blocks_per_day > 0
+        else 0
+    )
+    target_date = None
+    if latest_date:
+        target = datetime.strptime(latest_date, "%Y-%m-%d") + timedelta(
+            days=math.floor(days_to_bottom + 0.5)
+        )
+        target_date = target.strftime("%Y-%m-%d")
+
+    def historical_values(key):
+        return [
+            safe_float(row.get(key))
+            for row in bottoms
+            if row and safe_float(row.get(key)) is not None
+        ]
+
+    expected_mvrv_baseline = _recency_weighted_mean(
+        historical_values("mvrv")
+    )
+    expected_mvrv_z = _recency_weighted_mean(historical_values("mvrvZ"))
+    expected_wwi = _recency_weighted_mean(historical_values("wwi"))
+    current_cycle_mvrv = [
+        safe_float(row.get("mvrv"))
+        for row in forecast_rows
+        if safe_float(row.get("mvrv")) is not None
+    ]
+    if expected_mvrv_baseline is None:
+        expected_mvrv = None
+    elif current_cycle_mvrv:
+        expected_mvrv = min(expected_mvrv_baseline, min(current_cycle_mvrv))
+    else:
+        expected_mvrv = expected_mvrv_baseline
+
+    realized_rows = [
+        row
+        for row in series
+        if safe_float(row.get("realizedPrice")) is not None
+    ]
+    trend_start = (
+        realized_rows[max(0, len(realized_rows) - 181)]
+        if realized_rows
+        else None
+    )
+    trend_end = realized_rows[-1] if realized_rows else None
+    trend_days = 0
+    if trend_start and trend_end:
+        trend_days = max(
+            1,
+            (
+                datetime.strptime(trend_end["date"], "%Y-%m-%d")
+                - datetime.strptime(trend_start["date"], "%Y-%m-%d")
+            ).days,
+        )
+    trend_rate = 0.0
+    trend_start_value = safe_float(
+        trend_start.get("realizedPrice") if trend_start else None
+    )
+    trend_end_value = safe_float(
+        trend_end.get("realizedPrice") if trend_end else None
+    )
+    if (
+        trend_days
+        and trend_start_value is not None
+        and trend_start_value > 0
+        and trend_end_value is not None
+        and trend_end_value > 0
+    ):
+        trend_rate = max(
+            -0.001,
+            min(
+                0.001,
+                math.log(trend_end_value / trend_start_value) / trend_days,
+            ),
+        )
+
+    current_realized_price = safe_float(
+        current.get("realizedPrice", {}).get("value")
+    )
+    if current_realized_price is None and latest_row:
+        current_realized_price = safe_float(latest_row.get("realizedPrice"))
+    projected_days = min(540, max(0, days_to_bottom))
+    expected_realized_price = (
+        current_realized_price * math.exp(trend_rate * projected_days)
+        if current_realized_price is not None
+        else None
+    )
+    expected_price = (
+        expected_realized_price * expected_mvrv
+        if expected_realized_price is not None and expected_mvrv is not None
+        else _median(historical_values("price"))
+    )
+    expected_nupl = (
+        1 - 1 / expected_mvrv
+        if expected_mvrv is not None and expected_mvrv > 0
+        else None
+    )
+    expected_risk_score, _ = composite_risk(
+        {
+            "price": expected_price,
+            "nupl": expected_nupl,
+            "realizedPrice": expected_realized_price,
+            "mvrv": expected_mvrv,
+            "mvrvZ": expected_mvrv_z,
+            "wwi": expected_wwi,
+        }
+    )
+    return {
+        "values": {
+            "price": expected_price,
+            "nupl": expected_nupl,
+            "realizedPrice": expected_realized_price,
+            "mvrv": expected_mvrv,
+            "mvrvZ": expected_mvrv_z,
+            "wwi": expected_wwi,
+            "riskScore": expected_risk_score,
+        },
+        "asOf": daily_data_date or latest_date,
+        "targetDate": target_date,
+    }
 
 
 def risk_state(score):
