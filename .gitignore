@@ -8,3 +8,5 @@ __pycache__/
 *secrets*.json
 *.pem
 *.key
+.superpowers/
+.worktrees/
