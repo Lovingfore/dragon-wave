@@ -18,9 +18,9 @@ class GeneratedDataTests(unittest.TestCase):
         self.assertEqual(series, sorted(series, key=lambda row: row["date"]))
 
     def test_required_current_metrics_exist(self):
-        required = {"price", "nupl", "realizedPrice", "mvrv", "mvrvZ", "leverage", "wwi"}
+        required = {"price", "nupl", "realizedPrice", "mvrv", "mvrvZ", "wwi"}
         self.assertEqual(set(self.data["current"]), required)
-        for key in required - {"leverage"}:
+        for key in required:
             self.assertIsNotNone(self.data["current"][key]["value"])
 
     def test_scores_are_bounded(self):
@@ -35,6 +35,37 @@ class GeneratedDataTests(unittest.TestCase):
         value = self.data["current"]["wwi"]["value"]
         self.assertGreaterEqual(value, 0)
         self.assertLessEqual(value, 1)
+
+    def test_derived_history_is_internally_consistent(self):
+        count = 0
+        mean = 0.0
+        m2 = 0.0
+        last_height = -1
+        for row in self.data["series"]:
+            height = row["blockHeight"]
+            self.assertGreaterEqual(height, last_height)
+            last_height = height
+
+            phase = (height + 78750) % 210000
+            expected_wwi = phase / 157500 if phase < 157500 else 1 - (phase - 157500) / 52500
+            self.assertAlmostEqual(row["wwi"], expected_wwi, places=10)
+
+            market_cap = row.get("marketCap")
+            mvrv = row.get("mvrv")
+            supply = row.get("supply")
+            if market_cap is not None:
+                count += 1
+                delta = market_cap - mean
+                mean += delta / count
+                m2 += delta * (market_cap - mean)
+            if market_cap is not None and mvrv not in (None, 0):
+                realized_cap = market_cap / mvrv
+                self.assertAlmostEqual(row["nupl"], 1 - 1 / mvrv, places=10)
+                if supply not in (None, 0):
+                    self.assertAlmostEqual(row["realizedPrice"], realized_cap / supply, places=8)
+                if count > 1 and m2 > 0:
+                    expected_z = (market_cap - realized_cap) / math.sqrt(m2 / count)
+                    self.assertAlmostEqual(row["mvrvZ"], expected_z, places=8)
 
     def test_bear_market_bottom_snapshots_are_available(self):
         windows = [

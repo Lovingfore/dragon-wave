@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="LFCX EPOCH">
+  <rect width="64" height="64" rx="8" fill="#101719"/>
+  <path d="M14 13v36h16" fill="none" stroke="#edf4f5" stroke-width="6" stroke-linecap="square" stroke-linejoin="miter"/>
+  <path d="M33 49V15h19M33 31h15" fill="none" stroke="#ef6f51" stroke-width="6" stroke-linecap="square" stroke-linejoin="miter"/>
+  <path d="M9 55h46" fill="none" stroke="#55bdc6" stroke-width="2" opacity=".7"/>
+</svg>

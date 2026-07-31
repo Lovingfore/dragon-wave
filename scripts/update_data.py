@@ -1,9 +1,7 @@
 import argparse
 import json
-import os
-import sys
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -21,16 +19,15 @@ from model import (
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA_PATH = ROOT / "data" / "metrics.json"
-LEVERAGE_PATH = ROOT / "data" / "leverage-history.json"
 
 COIN_METRICS_URL = "https://community-api.coinmetrics.io/v4/timeseries/asset-metrics"
-DAILY_METRICS = "PriceUSD,CapMrktCurUSD,CapMVRVCur,SplyCur,SplyExNtv,BlkCnt"
+DAILY_METRICS = "PriceUSD,CapMrktCurUSD,CapMVRVCur,SplyCur,BlkCnt"
 
 
 def fetch_json(url, attempts=3, timeout=35):
     headers = {
         "Accept": "application/json",
-        "User-Agent": "DragonWave/1.0 (+https://github.com/)",
+        "User-Agent": "LFCXEpoch/1.0 (+https://github.com/)",
     }
     last_error = None
     for attempt in range(attempts):
@@ -45,7 +42,7 @@ def fetch_json(url, attempts=3, timeout=35):
 
 
 def fetch_text(url, attempts=3, timeout=25):
-    headers = {"User-Agent": "DragonWave/1.0 (+https://github.com/)"}
+    headers = {"User-Agent": "LFCXEpoch/1.0 (+https://github.com/)"}
     last_error = None
     for attempt in range(attempts):
         try:
@@ -126,56 +123,6 @@ def live_price():
     return None, None
 
 
-def aggregate_open_interest_btc():
-    sources = []
-    total = 0.0
-
-    try:
-        payload = fetch_json(
-            "https://fapi.binance.com/fapi/v1/openInterest?symbol=BTCUSDT",
-            attempts=1,
-            timeout=15,
-        )
-        value = safe_float(payload.get("openInterest"))
-        if value is not None:
-            total += value
-            sources.append("Binance")
-    except RuntimeError:
-        pass
-
-    try:
-        payload = fetch_json(
-            "https://api.bybit.com/v5/market/open-interest?category=linear&symbol=BTCUSDT&intervalTime=1h&limit=1",
-            attempts=1,
-            timeout=15,
-        )
-        rows = payload.get("result", {}).get("list", [])
-        value = safe_float(rows[0].get("openInterest")) if rows else None
-        if value is not None:
-            total += value
-            sources.append("Bybit")
-    except RuntimeError:
-        pass
-
-    try:
-        payload = fetch_json(
-            "https://www.okx.com/api/v5/public/open-interest?instType=SWAP&instId=BTC-USDT-SWAP",
-            attempts=1,
-            timeout=15,
-        )
-        rows = payload.get("data", [])
-        value = safe_float(rows[0].get("oiCcy")) if rows else None
-        if value is not None:
-            total += value
-            sources.append("OKX")
-    except RuntimeError:
-        pass
-
-    if not sources:
-        return None, []
-    return total, sources
-
-
 def merge_daily(existing, incoming):
     merged = {}
     for record in existing:
@@ -192,7 +139,6 @@ def merge_daily(existing, incoming):
             "marketCap": safe_float(record.get("CapMrktCurUSD")),
             "mvrv": safe_float(record.get("CapMVRVCur")),
             "supply": safe_float(record.get("SplyCur")),
-            "exchangeReserve": safe_float(record.get("SplyExNtv")),
             "blocks": safe_float(record.get("BlkCnt")),
         }
     return [merged[key] for key in sorted(merged)]
@@ -207,23 +153,16 @@ def welford_update(state, value):
     return count, mean, m2
 
 
-def leverage_by_date(history):
-    mapping = {}
-    for point in history:
-        stamp = point.get("time", "")
-        if len(stamp) >= 10 and point.get("value") is not None:
-            mapping[stamp[:10]] = point.get("value")
-    return mapping
-
-
-def derive_series(raw_series, leverage_history):
+def derive_series(raw_series):
     derived = []
     block_height = -1
     cap_state = (0, 0.0, 0.0)
-    leverage_map = leverage_by_date(leverage_history)
-    leverage_values = [point.get("value") for point in leverage_history if point.get("value") is not None]
 
     for raw in raw_series:
+        base = {
+            key: raw.get(key)
+            for key in ("date", "price", "marketCap", "mvrv", "supply", "blocks")
+        }
         blocks = raw.get("blocks")
         if blocks is not None:
             block_height += int(round(blocks))
@@ -251,18 +190,16 @@ def derive_series(raw_series, leverage_history):
             "realizedPrice": realized_price,
             "mvrv": mvrv,
             "mvrvZ": mvrv_z,
-            "leverage": leverage_map.get(raw["date"]),
             "wwi": wwi_data["value"],
         }
-        score, components = composite_risk(values, leverage_values)
+        score, components = composite_risk(values)
         derived.append(
             {
-                **raw,
+                **base,
                 "blockHeight": max(0, block_height),
                 "nupl": nupl,
                 "realizedPrice": realized_price,
                 "mvrvZ": mvrv_z,
-                "leverage": values["leverage"],
                 "wwi": wwi_data["value"],
                 "wwiDirection": wwi_data["direction"],
                 "riskScore": score,
@@ -272,12 +209,21 @@ def derive_series(raw_series, leverage_history):
     return derived
 
 
-def find_previous(series, days):
+def find_previous(series, days, anchor=None):
     if not series:
         return None
-    target = datetime.strptime(series[-1]["date"], "%Y-%m-%d").date() - timedelta(days=days)
+    anchor = anchor or series[-1]
+    target = datetime.strptime(anchor["date"], "%Y-%m-%d").date() - timedelta(days=days)
     candidates = [row for row in series if datetime.strptime(row["date"], "%Y-%m-%d").date() <= target]
     return candidates[-1] if candidates else None
+
+
+def latest_complete_onchain_row(series):
+    required = ("price", "marketCap", "mvrv", "supply", "nupl", "realizedPrice", "mvrvZ")
+    for row in reversed(series):
+        if all(row.get(key) is not None for key in required):
+            return row
+    return None
 
 
 def build_metric(value, one_day_value, seven_day_value, source_age="daily"):
@@ -290,12 +236,12 @@ def build_metric(value, one_day_value, seven_day_value, source_age="daily"):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Update Dragon Wave market data")
+    parser = argparse.ArgumentParser(description="Update LFCX Epoch market data")
     parser.add_argument("--full", action="store_true", help="Fetch all historical daily data")
     parser.add_argument(
         "--daily-only",
         action="store_true",
-        help="Skip live exchange endpoints when generating a local preview",
+        help="Skip live spot-price endpoints when generating a local preview",
     )
     args = parser.parse_args()
 
@@ -312,81 +258,64 @@ def main():
     if not raw_series:
         raise RuntimeError("Coin Metrics returned no usable daily records")
 
-    leverage_history = read_json(LEVERAGE_PATH, [])
-    exchange_reserve = raw_series[-1].get("exchangeReserve")
-    if args.daily_only:
-        open_interest, oi_sources = None, []
-    else:
-        open_interest, oi_sources = aggregate_open_interest_btc()
-    leverage_value = None
-    if open_interest is not None and exchange_reserve not in (None, 0):
-        leverage_value = open_interest / exchange_reserve
-        leverage_history.append({"time": iso_now(), "value": leverage_value, "sources": oi_sources})
-        cutoff = datetime.now(timezone.utc) - timedelta(days=3650)
-        leverage_history = [
-            point
-            for point in leverage_history
-            if datetime.fromisoformat(point["time"].replace("Z", "+00:00")) >= cutoff
-        ]
-        write_json(LEVERAGE_PATH, leverage_history)
-    elif leverage_history:
-        leverage_value = leverage_history[-1].get("value")
-        oi_sources = leverage_history[-1].get("sources", [])
-
-    series = derive_series(raw_series, leverage_history)
-    latest = series[-1]
-    one_day = find_previous(series, 1) or latest
-    seven_day = find_previous(series, 7) or latest
+    series = derive_series(raw_series)
+    latest_price_row = next((row for row in reversed(series) if row.get("price") is not None), None)
+    latest_onchain = latest_complete_onchain_row(series)
+    if latest_price_row is None or latest_onchain is None:
+        raise RuntimeError("Coin Metrics returned no complete price and on-chain rows")
+    price_one_day = find_previous(series, 1, latest_price_row) or latest_price_row
+    price_seven_day = find_previous(series, 7, latest_price_row) or latest_price_row
+    onchain_one_day = find_previous(series, 1, latest_onchain) or latest_onchain
+    onchain_seven_day = find_previous(series, 7, latest_onchain) or latest_onchain
+    cycle_one_day = find_previous(series, 1) or series[-1]
+    cycle_seven_day = find_previous(series, 7) or series[-1]
 
     spot_price, spot_source = (None, None) if args.daily_only else live_price()
-    current_price = spot_price or latest.get("price")
-    live_ratio = current_price / latest["price"] if current_price and latest.get("price") else 1.0
-    current_mvrv = latest.get("mvrv") * live_ratio if latest.get("mvrv") is not None else None
+    current_price = spot_price or latest_price_row.get("price")
+    live_ratio = current_price / latest_onchain["price"] if current_price and latest_onchain.get("price") else 1.0
+    current_mvrv = latest_onchain.get("mvrv") * live_ratio if latest_onchain.get("mvrv") is not None else None
     current_nupl = 1.0 - 1.0 / current_mvrv if current_mvrv not in (None, 0) else None
-    current_market_cap = latest.get("marketCap") * live_ratio if latest.get("marketCap") is not None else None
-    current_mvrv_z = latest.get("mvrvZ")
-    if current_market_cap and latest.get("marketCap") and latest.get("mvrvZ") is not None:
-        realized_cap = latest["marketCap"] / latest["mvrv"]
-        historical_numerator = latest["marketCap"] - realized_cap
+    current_market_cap = latest_onchain.get("marketCap") * live_ratio if latest_onchain.get("marketCap") is not None else None
+    current_mvrv_z = latest_onchain.get("mvrvZ")
+    if current_market_cap and latest_onchain.get("marketCap") and latest_onchain.get("mvrvZ") is not None:
+        realized_cap = latest_onchain["marketCap"] / latest_onchain["mvrv"]
+        historical_numerator = latest_onchain["marketCap"] - realized_cap
         if historical_numerator:
-            current_mvrv_z = latest["mvrvZ"] * (current_market_cap - realized_cap) / historical_numerator
+            current_mvrv_z = latest_onchain["mvrvZ"] * (current_market_cap - realized_cap) / historical_numerator
 
-    tip_height = get_tip_height() or latest.get("blockHeight", 0)
+    tip_height = get_tip_height() or series[-1].get("blockHeight", 0)
     current_wwi = wwi_for_height(tip_height)
     future_wwi = wwi_for_height(tip_height + 7 * 144)
 
     current_values = {
         "price": current_price,
         "nupl": current_nupl,
-        "realizedPrice": latest.get("realizedPrice"),
+        "realizedPrice": latest_onchain.get("realizedPrice"),
         "mvrv": current_mvrv,
         "mvrvZ": current_mvrv_z,
-        "leverage": leverage_value,
         "wwi": current_wwi["value"],
     }
-    leverage_values = [point.get("value") for point in leverage_history if point.get("value") is not None]
-    current_risk, risk_components = composite_risk(current_values, leverage_values)
-    recent_risks = [row.get("riskScore") for row in series[-7:]]
+    current_risk, risk_components = composite_risk(current_values)
+    recent_risks = [row.get("riskScore") for row in series if row.get("riskScore") is not None][-7:]
     outlook = outlook_7d(current_risk, recent_risks, future_wwi["value"])
 
     current = {
-        "price": build_metric(current_price, one_day.get("price"), seven_day.get("price"), "live" if spot_price else "daily"),
-        "nupl": build_metric(current_nupl, one_day.get("nupl"), seven_day.get("nupl")),
-        "realizedPrice": build_metric(latest.get("realizedPrice"), one_day.get("realizedPrice"), seven_day.get("realizedPrice")),
-        "mvrv": build_metric(current_mvrv, one_day.get("mvrv"), seven_day.get("mvrv")),
-        "mvrvZ": build_metric(current_mvrv_z, one_day.get("mvrvZ"), seven_day.get("mvrvZ")),
-        "leverage": build_metric(leverage_value, None, None, "live" if open_interest is not None else "cached"),
-        "wwi": build_metric(current_wwi["value"], one_day.get("wwi"), seven_day.get("wwi"), "block"),
+        "price": build_metric(current_price, price_one_day.get("price"), price_seven_day.get("price"), "live" if spot_price else "daily"),
+        "nupl": build_metric(current_nupl, onchain_one_day.get("nupl"), onchain_seven_day.get("nupl")),
+        "realizedPrice": build_metric(latest_onchain.get("realizedPrice"), onchain_one_day.get("realizedPrice"), onchain_seven_day.get("realizedPrice")),
+        "mvrv": build_metric(current_mvrv, onchain_one_day.get("mvrv"), onchain_seven_day.get("mvrv")),
+        "mvrvZ": build_metric(current_mvrv_z, onchain_one_day.get("mvrvZ"), onchain_seven_day.get("mvrvZ")),
+        "wwi": build_metric(current_wwi["value"], cycle_one_day.get("wwi"), cycle_seven_day.get("wwi"), "block"),
     }
 
     payload = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "metadata": {
             "generatedAt": iso_now(),
-            "dailyDataDate": latest["date"],
+            "dailyDataDate": latest_onchain["date"],
+            "priceDataDate": latest_price_row["date"],
             "spotSource": spot_source or "Coin Metrics",
-            "openInterestSources": oi_sources,
-            "dataQuality": "complete" if leverage_value is not None else "partial",
+            "dataQuality": "complete" if latest_onchain["date"] == latest_price_row["date"] else "partial",
         },
         "current": current,
         "cycle": {
@@ -401,18 +330,17 @@ def main():
             "outlook7d": outlook,
         },
         "series": series,
-        "leverageSeries": leverage_history,
         "sources": [
-            {"name": "Coin Metrics Community", "use": "价格、链上估值、交易所储备、区块统计"},
+            {"name": "Coin Metrics Community", "use": "价格、链上估值、流通量、区块统计"},
             {"name": "Mempool.space / Blockchain.com", "use": "最新区块高度"},
-            {"name": "Binance / Bybit / OKX", "use": "公开未平仓合约量"},
+            {"name": "Coinbase / CoinGecko / Binance", "use": "尽量实时的现货价格"},
         ],
     }
     write_json(DATA_PATH, payload)
-    print("Updated {} daily rows; latest {}".format(len(series), latest["date"]))
-    if leverage_value is None:
-        print("Warning: live leverage sources were unavailable; using cached value", file=sys.stderr)
-
-
+    print(
+        "Updated {} daily rows; price {}, on-chain {}".format(
+            len(series), latest_price_row["date"], latest_onchain["date"]
+        )
+    )
 if __name__ == "__main__":
     main()

@@ -20,7 +20,6 @@ LABELS = {
     "realizedPrice": "已实现价格",
     "mvrv": "MVRV",
     "mvrvZ": "MVRV Z-Score",
-    "leverage": "杠杆代理",
     "wwi": "狼波周期指数",
 }
 
@@ -52,8 +51,6 @@ def format_value(key, value):
         return "{:.3f}".format(value)
     if key in ("mvrv", "mvrvZ"):
         return "{:.2f}".format(value)
-    if key == "leverage":
-        return "{:.4f}".format(value)
     if key == "wwi":
         return "{:.3f}".format(value)
     return str(value)
@@ -74,13 +71,13 @@ def build_email(data, state_info, kind):
     risk_score = assessment.get("riskScore")
 
     if kind == "alert":
-        subject = "[龙波预警] {}".format(risk["label"])
+        subject = "[LFCX EPOCH · 预警] {}".format(risk["label"])
         lead = "风险状态刚刚进入高关注区间，请结合各项指标审慎判断。"
     elif kind == "test":
-        subject = "[龙波] 邮件配置测试"
+        subject = "[LFCX EPOCH] 邮件配置测试"
         lead = "邮件通道配置成功，之后将按计划发送日报与风险预警。"
     else:
-        subject = "[龙波日报] {} · {}".format(now.strftime("%m月%d日"), risk["label"])
+        subject = "[LFCX EPOCH · 日报] {} · {}".format(now.strftime("%m月%d日"), risk["label"])
         lead = "以下为北京时间 {} 的 BTC 周期监控摘要。".format(now.strftime("%Y-%m-%d %H:%M"))
 
     text_lines = [
@@ -119,7 +116,7 @@ def build_email(data, state_info, kind):
 <html lang="zh-CN"><body style="margin:0;background:#f4f6f8;color:#172026;font-family:Arial,'Microsoft YaHei',sans-serif">
 <div style="max-width:680px;margin:0 auto;padding:28px 16px">
   <div style="background:#101619;color:#f7fafb;padding:24px;border-radius:8px 8px 0 0">
-    <div style="font-size:13px;color:#9eb0b8">DRAGON WAVE · BTC CYCLE MONITOR</div>
+    <div style="font-size:13px;color:#9eb0b8">LFCX EPOCH · LOVINGFORE × CODEX</div>
     <h1 style="font-size:24px;line-height:1.35;margin:10px 0 8px">{subject}</h1>
     <p style="margin:0;color:#c7d1d5">{lead}</p>
   </div>
@@ -136,7 +133,7 @@ def build_email(data, state_info, kind):
       <tbody>{rows}</tbody>
     </table>
   </div>
-  <div style="padding:15px 2px;color:#7b898f;font-size:12px;line-height:1.6">数据仅用于周期观察，不构成投资建议。链上指标为日更，价格与杠杆代理尽量实时更新。</div>
+  <div style="padding:15px 2px;color:#7b898f;font-size:12px;line-height:1.6">数据仅用于周期观察，不构成投资建议。链上指标为日更，BTC 价格尽量实时更新。</div>
 </div>
 </body></html>""".format(
         subject=html.escape(subject),
@@ -151,21 +148,25 @@ def build_email(data, state_info, kind):
 
 
 def send_email(address, app_password, subject, text_body, html_body):
-    message = EmailMessage()
-    message["Subject"] = subject
-    message["From"] = address
-    message["To"] = address
-    message.set_content(text_body)
-    message.add_alternative(html_body, subtype="html")
+    try:
+        message = EmailMessage()
+        message["Subject"] = subject
+        message["From"] = address
+        message["To"] = address
+        message.set_content(text_body)
+        message.add_alternative(html_body, subtype="html")
 
-    context = ssl.create_default_context()
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context, timeout=30) as smtp:
-        smtp.login(address, app_password)
-        smtp.send_message(message)
+        context = ssl.create_default_context()
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context, timeout=30) as smtp:
+            smtp.login(address, app_password)
+            smtp.send_message(message)
+    except Exception:
+        # Errors at this boundary may contain recipient details. Keep public CI logs generic.
+        raise RuntimeError("Email delivery failed; check the Gmail Actions secrets and account settings") from None
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Send Dragon Wave email notifications")
+    parser = argparse.ArgumentParser(description="Send LFCX Epoch email notifications")
     parser.add_argument("--mode", choices=("auto", "daily", "alert", "test"), default="auto")
     args = parser.parse_args()
 
@@ -219,7 +220,7 @@ def main():
         state["lastAlertZone"] = current_zone
     state["lastSentAt"] = now.isoformat()
     write_json(STATE_PATH, state)
-    print("Sent {} email to {}".format(kind, address))
+    print("Sent {} email".format(kind))
 
 
 if __name__ == "__main__":

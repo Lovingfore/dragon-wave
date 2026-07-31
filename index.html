@@ -2,24 +2,23 @@
 <html lang="zh-CN" data-theme="dark">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0b0f10">
-  <meta name="description" content="龙波 BTC 周期监控仪表盘">
-  <title>龙波 · BTC Cycle Monitor</title>
-  <link rel="icon" href="assets/dragon-wave-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="assets/css/app.css?v=20260728-2">
+  <meta name="description" content="LFCX EPOCH BTC 周期监控与风险情报仪表盘">
+  <title>LFCX EPOCH · BTC Cycle Intelligence</title>
+  <link rel="icon" href="assets/lfcx-epoch-mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/css/app.css?v=20260729-9">
   <script defer src="assets/js/chart.umd.min.js"></script>
   <script defer src="assets/js/lucide.min.js"></script>
-  <script defer src="assets/js/app.js?v=20260728-2"></script>
+  <script defer src="assets/js/app.js?v=20260729-17"></script>
 </head>
 <body>
   <header class="app-header">
     <div class="header-inner">
-      <a class="brand" href="./" aria-label="龙波首页">
-        <img class="brand-mark" src="assets/dragon-wave-mark.svg" width="38" height="38" alt="">
+      <a class="brand" href="./" aria-label="LFCX EPOCH 首页">
+        <img class="brand-mark" src="assets/lfcx-epoch-mark.svg" width="38" height="38" alt="">
         <span class="brand-copy">
-          <strong>龙波</strong>
-          <span>BTC Cycle Monitor</span>
+          <strong><span class="brand-prefix">LFCX</span> EPOCH</strong>
+          <span>Lovingfore × Codex</span>
         </span>
       </a>
       <div class="header-actions">
@@ -46,7 +45,7 @@
             <h1 id="assessmentTitle">载入市场状态</h1>
             <span class="risk-badge tone-muted" id="riskBadge">--</span>
           </div>
-          <p id="assessmentDetail">正在计算链上估值、市场杠杆与区块周期信号。</p>
+          <p id="assessmentDetail">正在计算链上估值与区块周期信号。</p>
         </div>
         <div class="risk-panel" aria-label="综合风险分">
           <div class="risk-score-line">
@@ -110,12 +109,6 @@
             <strong class="metric-value" data-value="mvrvZ">--</strong>
             <span class="metric-change-row"><span data-change="mvrvZ">--</span><span>近 7 日</span></span>
           </button>
-          <button class="metric-card" type="button" data-metric="leverage">
-            <span class="metric-top"><span class="metric-icon accent-violet"><i data-lucide="gauge"></i></span><span class="source-badge" data-source="leverage">--</span></span>
-            <span class="metric-label">杠杆代理</span>
-            <strong class="metric-value" data-value="leverage">--</strong>
-            <span class="metric-change-row"><span data-change="leverage">--</span><span>近 7 日</span></span>
-          </button>
           <button class="metric-card" type="button" data-metric="wwi">
             <span class="metric-top"><span class="metric-icon accent-red"><i data-lucide="waves"></i></span><span class="source-badge" data-source="wwi">--</span></span>
             <span class="metric-label">狼波周期指数</span>
@@ -131,7 +124,7 @@
         <div class="bottoms-heading">
           <div class="section-kicker">底部基准</div>
           <h2 id="bottomsTitle">历次熊市底部对照</h2>
-          <p>各轮底部按对应周期内 Coin Metrics BTC 日线收盘最低价选取。</p>
+          <p>各轮底部按对应周期内 Coin Metrics BTC 日线收盘最低价选取；本次熊市低点预期会在每次打开或刷新时，依据最新已实现价格趋势、周期区块距离与历史底部估值水平动态重算。</p>
         </div>
         <div class="bottoms-table-wrap" role="region" aria-label="当前指标与历次熊市底部数据对照" tabindex="0">
           <table class="bottoms-table">
@@ -143,7 +136,6 @@
             </tbody>
           </table>
         </div>
-        <p class="bottoms-note">杠杆代理缺少跨周期一致的免费历史数据，未覆盖的日期显示为“无历史数据”。</p>
       </div>
     </section>
 
@@ -152,8 +144,8 @@
         <div class="chart-heading">
           <div>
             <div class="section-kicker">历史轨迹</div>
-            <h2 id="chartTitle">综合风险分位</h2>
-            <p id="chartSubtitle">各指标统一映射至 0–100，便于横向比较。</p>
+            <h2 id="chartTitle">指标历史走势</h2>
+            <p id="chartSubtitle">底部参考取历次周期低点。</p>
           </div>
           <div class="range-control" role="group" aria-label="时间范围">
             <button type="button" data-range="30">1月</button>
@@ -163,22 +155,22 @@
             <button type="button" data-range="all">全部</button>
           </div>
         </div>
-        <div class="metric-tabs" role="tablist" aria-label="历史指标">
-          <button type="button" role="tab" aria-selected="true" data-tab="overview" class="active">综合</button>
-          <button type="button" role="tab" aria-selected="false" data-tab="price">BTC 价格</button>
-          <button type="button" role="tab" aria-selected="false" data-tab="nupl">NUPL</button>
-          <button type="button" role="tab" aria-selected="false" data-tab="realizedPrice">已实现价格</button>
-          <button type="button" role="tab" aria-selected="false" data-tab="mvrv">MVRV</button>
-          <button type="button" role="tab" aria-selected="false" data-tab="mvrvZ">MVRV Z</button>
-          <button type="button" role="tab" aria-selected="false" data-tab="leverage">杠杆代理</button>
-          <button type="button" role="tab" aria-selected="false" data-tab="wwi">狼波周期指数</button>
-        </div>
-        <div class="chart-frame">
-          <canvas id="historyChart" aria-label="BTC 周期历史图"></canvas>
-          <div class="chart-empty" id="chartEmpty" hidden>
-            <i data-lucide="database-zap"></i>
-            <strong>该指标正在积累历史数据</strong>
+        <div class="metric-picker" role="group" aria-label="选择历史指标">
+          <label class="metric-check"><input type="checkbox" data-metric-toggle="price"><span class="metric-check-box"><i data-lucide="check"></i></span><span class="metric-check-swatch" style="--metric-color:#e0ae54"></span><span>BTC 价格</span></label>
+          <label class="metric-check"><input type="checkbox" data-metric-toggle="nupl"><span class="metric-check-box"><i data-lucide="check"></i></span><span class="metric-check-swatch" style="--metric-color:#4fbe8a"></span><span>NUPL</span></label>
+          <label class="metric-check"><input type="checkbox" data-metric-toggle="realizedPrice"><span class="metric-check-box"><i data-lucide="check"></i></span><span class="metric-check-swatch" style="--metric-color:#55bdc6"></span><span>已实现价格</span></label>
+          <label class="metric-check"><input type="checkbox" data-metric-toggle="mvrv"><span class="metric-check-box"><i data-lucide="check"></i></span><span class="metric-check-swatch" style="--metric-color:#4d9de0"></span><span>MVRV</span></label>
+          <label class="metric-check"><input type="checkbox" data-metric-toggle="mvrvZ"><span class="metric-check-box"><i data-lucide="check"></i></span><span class="metric-check-swatch" style="--metric-color:#ef6f51"></span><span>MVRV Z</span></label>
+          <label class="metric-check"><input type="checkbox" data-metric-toggle="wwi"><span class="metric-check-box"><i data-lucide="check"></i></span><span class="metric-check-swatch" style="--metric-color:#e55c6d"></span><span>狼波周期指数</span></label>
+          <div class="metric-picker-actions">
+            <button type="button" id="selectAllMetrics">全选</button>
+            <button type="button" id="clearMetrics">清空</button>
           </div>
+        </div>
+        <div class="chart-grid" id="chartGrid" aria-live="polite"></div>
+        <div class="chart-empty" id="chartEmpty" hidden>
+          <i data-lucide="list-checks"></i>
+          <strong id="chartEmptyText">请选择指标</strong>
         </div>
       </div>
     </section>
@@ -191,8 +183,7 @@
         </div>
         <dl class="method-list">
           <div><dt>估值</dt><dd>NUPL、MVRV、MVRV Z-Score 与价格相对已实现价格的位置</dd></div>
-          <div><dt>周期</dt><dd>基于 Wolfy Wave Index 公开方法和区块高度计算的狼波周期指数，0 为理论底部，1 为理论顶部</dd></div>
-          <div><dt>杠杆</dt><dd>主流交易所公开未平仓量相对 Coin Metrics 交易所 BTC 储备的代理比率</dd></div>
+          <div><dt>周期</dt><dd>基于 Wolfy Wave Index 公开方法和区块高度计算；BTC 对数价格线按指数色谱着色，下方独立指数曲线中 0 为理论底部、1 为理论顶部</dd></div>
           <div><dt>预警</dt><dd>综合风险分进入 0–15 或 85–100，并且状态发生变化时触发</dd></div>
         </dl>
       </div>
@@ -201,8 +192,8 @@
 
   <footer class="app-footer">
     <div class="page-shell footer-inner">
-      <span>龙波 · 数据仅用于周期观察，不构成投资建议</span>
-      <span id="sourceSummary">Coin Metrics Community · 公开交易所接口</span>
+      <span>LFCX EPOCH · 数据仅用于周期观察，不构成投资建议</span>
+      <span id="sourceSummary">Coin Metrics Community · 公开区块高度接口</span>
     </div>
   </footer>
 

@@ -21,6 +21,11 @@ class WolfyWaveTests(unittest.TestCase):
 
 
 class RiskModelTests(unittest.TestCase):
+    def test_incomplete_market_data_has_no_composite_score(self):
+        score, components = composite_risk({"price": 60000, "wwi": 0.4})
+        self.assertIsNone(score)
+        self.assertIsNotNone(components["wwi"])
+
     def test_hot_market_scores_high(self):
         values = {
             "price": 240000,
@@ -28,10 +33,9 @@ class RiskModelTests(unittest.TestCase):
             "nupl": 0.78,
             "mvrv": 4.0,
             "mvrvZ": 8.0,
-            "leverage": 0.11,
             "wwi": 0.95,
         }
-        score, _ = composite_risk(values, [0.02, 0.04, 0.06, 0.08, 0.1])
+        score, _ = composite_risk(values)
         self.assertGreaterEqual(score, 85)
         self.assertEqual(risk_state(score)["key"], "near_top")
 
@@ -42,10 +46,9 @@ class RiskModelTests(unittest.TestCase):
             "nupl": -0.2,
             "mvrv": 0.7,
             "mvrvZ": -0.7,
-            "leverage": 0.01,
             "wwi": 0.02,
         }
-        score, _ = composite_risk(values, [0.02, 0.04, 0.06, 0.08, 0.1])
+        score, _ = composite_risk(values)
         self.assertLessEqual(score, 15)
         self.assertEqual(risk_state(score)["key"], "near_bottom")
 
@@ -56,4 +59,3 @@ class RiskModelTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

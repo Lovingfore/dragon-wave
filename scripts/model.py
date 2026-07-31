@@ -8,7 +8,6 @@ METRIC_KEYS = (
     "realizedPrice",
     "mvrv",
     "mvrvZ",
-    "leverage",
     "wwi",
 )
 
@@ -33,15 +32,6 @@ def percent_change(current, previous):
     return (current / previous - 1.0) * 100.0
 
 
-def percentile_rank(values, current):
-    usable = sorted(value for value in values if value is not None and math.isfinite(value))
-    if current is None or not usable:
-        return None
-    below = sum(1 for value in usable if value < current)
-    equal = sum(1 for value in usable if value == current)
-    return 100.0 * (below + 0.5 * equal) / len(usable)
-
-
 def wwi_for_height(height):
     phase = (int(height) + 78750) % 210000
     if phase < 157500:
@@ -63,15 +53,12 @@ def _linear_score(value, low, high):
     return clamp((value - low) / (high - low) * 100.0)
 
 
-def component_scores(values, leverage_history=None):
+def component_scores(values):
     price = values.get("price")
     realized_price = values.get("realizedPrice")
     price_ratio = None
     if price is not None and realized_price not in (None, 0):
         price_ratio = price / realized_price
-
-    leverage_values = leverage_history or []
-    leverage_score = percentile_rank(leverage_values, values.get("leverage"))
 
     return {
         "nupl": _linear_score(values.get("nupl"), -0.15, 0.75),
@@ -79,19 +66,20 @@ def component_scores(values, leverage_history=None):
         "mvrvZ": _linear_score(values.get("mvrvZ"), -0.5, 7.5),
         "priceToRealized": _linear_score(price_ratio, 0.8, 3.2),
         "wwi": _linear_score(values.get("wwi"), 0.0, 1.0),
-        "leverage": leverage_score,
     }
 
 
-def composite_risk(values, leverage_history=None):
-    scores = component_scores(values, leverage_history)
+def composite_risk(values):
+    scores = component_scores(values)
+    core_keys = ("nupl", "mvrv", "mvrvZ", "priceToRealized", "wwi")
+    if sum(scores[key] is not None for key in core_keys) < 4:
+        return None, scores
     weights = {
         "nupl": 0.18,
         "mvrv": 0.17,
         "mvrvZ": 0.22,
         "priceToRealized": 0.13,
         "wwi": 0.18,
-        "leverage": 0.12,
     }
     weighted = [(scores[key], weight) for key, weight in weights.items() if scores[key] is not None]
     if not weighted:

@@ -2,7 +2,8 @@ name: Update data and notify
 
 on:
   schedule:
-    - cron: "7 * * * *"
+    - cron: "7 * * * *" # Hourly refresh and immediate risk-state alerts.
+    - cron: "0 14 * * *" # Daily email at 22:00 Asia/Shanghai (UTC+8).
   workflow_dispatch:
     inputs:
       notify_mode:
@@ -19,7 +20,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: dragon-wave-monitor
+  group: lfcx-epoch-monitor
   cancel-in-progress: false
 
 jobs:
@@ -37,12 +38,12 @@ jobs:
         env:
           GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
-          NOTIFY_MODE: ${{ inputs.notify_mode || 'auto' }}
+          NOTIFY_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.notify_mode || (github.event.schedule == '0 14 * * *' && 'daily' || 'auto') }}
         run: python scripts/notify.py --mode "$NOTIFY_MODE"
       - name: Persist refreshed data
         run: |
-          git config user.name "dragon-wave-bot"
-          git config user.email "dragon-wave-bot@users.noreply.github.com"
+          git config user.name "lfcx-epoch-bot"
+          git config user.email "lfcx-epoch-bot@users.noreply.github.com"
           git add data/
           if git diff --cached --quiet; then
             echo "No data changes"
@@ -50,4 +51,3 @@ jobs:
             git commit -m "data: refresh BTC cycle metrics"
             git push
           fi
-
