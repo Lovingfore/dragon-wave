@@ -2,7 +2,7 @@ name: Update data and notify
 
 on:
   schedule:
-    - cron: "7 * * * *" # Hourly refresh and immediate risk-state alerts.
+    - cron: "7,27,47 * * * *" # Redundant candidates; freshness gate keeps hourly cadence.
     - cron: "0 14 * * *" # Daily email at 22:00 Asia/Shanghai (UTC+8).
   workflow_dispatch:
     inputs:
@@ -27,27 +27,56 @@ jobs:
   monitor:
     runs-on: ubuntu-latest
     timeout-minutes: 12
+    outputs:
+      updated: ${{ steps.persist.outputs.updated }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Decide whether refresh is due
+        id: freshness
+        env:
+          FORCE_REFRESH: ${{ github.event_name == 'workflow_dispatch' || github.event.schedule == '0 14 * * *' }}
+        run: |
+          force_arg=""
+          if [ "$FORCE_REFRESH" = "true" ]; then force_arg="--force"; fi
+          decision=$(python scripts/refresh_policy.py --data data/metrics.json --max-age-minutes 45 $force_arg)
+          echo "should_refresh=$decision" >> "$GITHUB_OUTPUT"
+      - name: Skip fresh candidate
+        if: steps.freshness.outputs.should_refresh != 'true'
+        run: echo "Data was refreshed less than 45 minutes ago"
       - name: Update market data
+        if: steps.freshness.outputs.should_refresh == 'true'
         run: python scripts/update_data.py
       - name: Send scheduled email or risk alert
+        if: steps.freshness.outputs.should_refresh == 'true'
         env:
           GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           NOTIFY_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.notify_mode || (github.event.schedule == '0 14 * * *' && 'daily' || 'auto') }}
         run: python scripts/notify.py --mode "$NOTIFY_MODE"
       - name: Persist refreshed data
+        id: persist
+        if: steps.freshness.outputs.should_refresh == 'true'
         run: |
           git config user.name "lfcx-epoch-bot"
           git config user.email "lfcx-epoch-bot@users.noreply.github.com"
           git add data/
           if git diff --cached --quiet; then
             echo "No data changes"
+            echo "updated=false" >> "$GITHUB_OUTPUT"
           else
             git commit -m "data: refresh BTC cycle metrics"
             git push
+            echo "updated=true" >> "$GITHUB_OUTPUT"
           fi
+
+  deploy:
+    needs: monitor
+    if: needs.monitor.outputs.updated == 'true'
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/pages.yml
