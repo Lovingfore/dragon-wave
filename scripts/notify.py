@@ -69,6 +69,9 @@ def build_email(data, state_info, kind):
     risk = state_info
     outlook = assessment.get("outlook7d", {})
     risk_score = assessment.get("riskScore")
+    forecast = assessment.get("bottomForecast", {})
+    forecast_values = forecast.get("values", {})
+    forecast_date = forecast.get("targetDate") or forecast.get("asOf") or "--"
 
     if kind == "alert":
         subject = "[LFCX EPOCH · 预警] {}".format(risk["label"])
@@ -86,20 +89,78 @@ def build_email(data, state_info, kind):
         "",
         "当前状态：{}（综合风险分 {}）".format(risk["label"], risk_score if risk_score is not None else "--"),
         "未来七日：{}".format(outlook.get("label", "暂无法判断")),
+        "预测底部日期：{}（动态模型估计）".format(forecast_date),
         "",
-        "指标                最新值        1日变化      7日变化",
+        "指标                最新值       预测底部值      1日变化      7日变化",
     ]
 
     rows = []
-    for key, label in LABELS.items():
+    for index, (key, label) in enumerate(LABELS.items()):
         metric = current.get(key, {})
         value = format_value(key, metric.get("value"))
+        forecast_value = (
+            format_value(key, forecast_values.get(key))
+            if forecast_values.get(key) is not None
+            else "--"
+        )
         day = format_change(metric.get("change1d"))
         week = format_change(metric.get("change7d"))
-        text_lines.append("{:<20} {:>12} {:>11} {:>11}".format(label, value, day, week))
+        text_lines.append(
+            "{:<20} {:>12} {:>14} {:>11} {:>11}".format(
+                label,
+                value,
+                forecast_value,
+                day,
+                week,
+            )
+        )
+        row_background = "#1d2225" if index % 2 else "#181c1f"
+        cell_base = (
+            "padding:10px 8px;border:1px solid #465158;"
+            "line-height:1.35;font-size:12px"
+        )
+        day_color = (
+            "#ff9b86"
+            if metric.get("change1d") is not None
+            and metric.get("change1d") < 0
+            else "#77c9a5"
+            if metric.get("change1d") is not None
+            and metric.get("change1d") > 0
+            else "#e8edef"
+        )
+        week_color = (
+            "#ff9b86"
+            if metric.get("change7d") is not None
+            and metric.get("change7d") < 0
+            else "#77c9a5"
+            if metric.get("change7d") is not None
+            and metric.get("change7d") > 0
+            else "#e8edef"
+        )
         rows.append(
-            "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>".format(
-                html.escape(label), html.escape(value), html.escape(day), html.escape(week)
+            (
+                '<tr bgcolor="{row_background}">'
+                '<td class="metric-cell metric-label" width="29%" align="left" '
+                'style="{cell_base};background:{row_background};color:#e8edef;word-break:break-word">{label}</td>'
+                '<td class="metric-cell" width="18%" align="right" '
+                'style="{cell_base};background:{row_background};color:#e8edef;white-space:nowrap">{value}</td>'
+                '<td class="metric-cell" width="25%" align="right" bgcolor="#312c20" '
+                'style="{cell_base};background:#312c20;color:#f2d889;white-space:nowrap">{forecast}</td>'
+                '<td class="metric-cell" width="14%" align="right" '
+                'style="{cell_base};background:{row_background};color:{day_color};white-space:nowrap">{day}</td>'
+                '<td class="metric-cell" width="14%" align="right" '
+                'style="{cell_base};background:{row_background};color:{week_color};white-space:nowrap">{week}</td>'
+                "</tr>"
+            ).format(
+                row_background=row_background,
+                cell_base=cell_base,
+                label=html.escape(label),
+                value=html.escape(value),
+                forecast=html.escape(forecast_value),
+                day=html.escape(day),
+                week=html.escape(week),
+                day_color=day_color,
+                week_color=week_color,
             )
         )
 
@@ -108,40 +169,91 @@ def build_email(data, state_info, kind):
             "",
             outlook.get("detail", ""),
             "",
+            "预测底部值为动态模型估计，并非价格承诺。",
             "数据仅用于周期观察，不构成投资建议。",
         ]
     )
 
-    html_body = """<!doctype html>
-<html lang="zh-CN"><body style="margin:0;background:#f4f6f8;color:#172026;font-family:Arial,'Microsoft YaHei',sans-serif">
-<div style="max-width:680px;margin:0 auto;padding:28px 16px">
-  <div style="background:#101619;color:#f7fafb;padding:24px;border-radius:8px 8px 0 0">
-    <div style="font-size:13px;color:#9eb0b8">LFCX EPOCH · LOVINGFORE × CODEX</div>
-    <h1 style="font-size:24px;line-height:1.35;margin:10px 0 8px">{subject}</h1>
-    <p style="margin:0;color:#c7d1d5">{lead}</p>
-  </div>
-  <div style="background:#fff;padding:24px;border:1px solid #dce3e7;border-top:0">
-    <div style="border-left:4px solid #ea6a4a;padding-left:14px;margin-bottom:22px">
-      <div style="font-size:13px;color:#65757d">当前风险状态 · 综合风险分 {score}</div>
-      <div style="font-size:20px;font-weight:700;margin-top:4px">{risk}</div>
-    </div>
-    <div style="font-size:13px;color:#65757d">未来七日判断</div>
-    <div style="font-size:17px;font-weight:700;margin:5px 0 5px">{outlook}</div>
-    <p style="font-size:14px;line-height:1.6;color:#52636b;margin:0 0 22px">{detail}</p>
-    <table style="width:100%;border-collapse:collapse;font-size:14px">
-      <thead><tr><th style="text-align:left;padding:10px 8px;border-bottom:1px solid #dce3e7">指标</th><th style="text-align:right;padding:10px 8px;border-bottom:1px solid #dce3e7">最新值</th><th style="text-align:right;padding:10px 8px;border-bottom:1px solid #dce3e7">1日</th><th style="text-align:right;padding:10px 8px;border-bottom:1px solid #dce3e7">7日</th></tr></thead>
-      <tbody>{rows}</tbody>
-    </table>
-  </div>
-  <div style="padding:15px 2px;color:#7b898f;font-size:12px;line-height:1.6">数据仅用于周期观察，不构成投资建议。链上指标为日更，BTC 价格尽量实时更新。</div>
-</div>
-</body></html>""".format(
+    header_cell = (
+        "padding:10px 8px;border:1px solid #465158;line-height:1.35;"
+        "font-size:11px;font-weight:700"
+    )
+    html_body = """<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="supported-color-schemes" content="dark" />
+  <style type="text/css">
+    @media only screen and (max-width:520px) {{
+      .mail-gutter {{ padding:10px 6px !important; }}
+      .mail-section {{ padding:18px 12px !important; }}
+      .metric-cell {{ padding:8px 3px !important; font-size:10px !important; }}
+      .metric-label {{ white-space:normal !important; }}
+      .mail-title {{ font-size:20px !important; }}
+    }}
+  </style>
+</head>
+<body bgcolor="#0e1113" style="margin:0;padding:0;background:#0e1113;color:#e8edef;font-family:Arial,'Microsoft YaHei',sans-serif">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#0e1113" style="width:100%;background:#0e1113;border-collapse:collapse">
+    <tr>
+      <td class="mail-gutter" align="center" style="padding:28px 16px">
+        <table class="mail-shell" role="presentation" width="680" cellspacing="0" cellpadding="0" border="0" bgcolor="#181c1f" style="width:100%;max-width:680px;background:#181c1f;border:1px solid #343c41;border-collapse:collapse">
+          <tr>
+            <td bgcolor="#0d1113" style="padding:24px;background:#0d1113;color:#f3f6f7;border-bottom:1px solid #343c41">
+              <div style="font-size:12px;line-height:1.4;color:#8fa1aa">LFCX EPOCH · DAILY MONITOR</div>
+              <div class="mail-title" style="font-size:23px;line-height:1.35;font-weight:700;margin:9px 0 7px;color:#f3f6f7">{subject}</div>
+              <div style="font-size:13px;line-height:1.55;color:#aebbc1">{lead}</div>
+            </td>
+          </tr>
+          <tr>
+            <td class="mail-section" bgcolor="#181c1f" style="padding:24px;background:#181c1f;color:#e8edef">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;border-collapse:collapse;margin:0 0 20px">
+                <tr>
+                  <td width="4" bgcolor="#ff7658" style="width:4px;background:#ff7658;font-size:1px;line-height:1px">&#160;</td>
+                  <td style="padding-left:13px">
+                    <div style="font-size:12px;line-height:1.4;color:#93a3aa">当前风险状态 · 综合风险分 {score}</div>
+                    <div style="font-size:20px;line-height:1.4;font-weight:700;color:#f3f6f7;margin-top:4px">{risk}</div>
+                  </td>
+                </tr>
+              </table>
+              <div style="font-size:12px;line-height:1.4;color:#93a3aa">未来七日判断</div>
+              <div style="font-size:16px;line-height:1.45;font-weight:700;color:#eef2f3;margin:5px 0">{outlook}</div>
+              <div style="font-size:13px;line-height:1.6;color:#aebbc1;margin:0 0 18px">{detail}</div>
+              <div style="font-size:11px;line-height:1.45;color:#93a3aa;margin:0 0 8px">底部预测 · 动态估计 {forecast_date}</div>
+              <table data-role="metrics" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;table-layout:fixed;border-collapse:collapse;border:1px solid #465158;font-variant-numeric:tabular-nums">
+                <thead>
+                  <tr bgcolor="#252b2f">
+                    <th width="29%" align="left" style="{header_cell};background:#252b2f;color:#b8c3c8">指标</th>
+                    <th width="18%" align="right" style="{header_cell};background:#252b2f;color:#b8c3c8">最新值</th>
+                    <th width="25%" align="right" bgcolor="#403720" style="{header_cell};background:#403720;color:#ffe29a">预测底部值</th>
+                    <th width="14%" align="right" style="{header_cell};background:#252b2f;color:#b8c3c8">1 日</th>
+                    <th width="14%" align="right" style="{header_cell};background:#252b2f;color:#b8c3c8">7 日</th>
+                  </tr>
+                </thead>
+                <tbody>{rows}</tbody>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td bgcolor="#111518" style="padding:14px 18px;background:#111518;color:#84949b;font-size:11px;line-height:1.55;border-top:1px solid #343c41">
+              预测底部值为动态模型估计，并非价格承诺。数据仅用于周期观察，不构成投资建议。链上指标为日更，BTC 价格尽量实时更新。
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>""".format(
         subject=html.escape(subject),
         lead=html.escape(lead),
         score=html.escape(str(risk_score if risk_score is not None else "--")),
         risk=html.escape(risk["label"]),
         outlook=html.escape(outlook.get("label", "暂无法判断")),
         detail=html.escape(outlook.get("detail", "")),
+        forecast_date=html.escape(str(forecast_date)),
+        header_cell=header_cell,
         rows="".join(rows),
     )
     return subject, "\n".join(text_lines), html_body
